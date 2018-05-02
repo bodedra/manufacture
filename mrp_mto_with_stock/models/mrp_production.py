@@ -5,8 +5,6 @@
 from odoo import api, models
 from odoo.exceptions import UserError
 import copy
-import logging
-_logger = logging.getLogger(__name__)
 
 
 class MrpProduction(models.Model):
@@ -36,20 +34,21 @@ class MrpProduction(models.Model):
                 if move.state in ('partially_available', 'confirmed') \
                         and move.location_id in \
                         move.product_id.mrp_mts_mto_location_ids \
-                        and not mto_with_no_move_dest_id:
+                        and not mto_with_no_move_dest_id \
+                        and move.procure_method != 'make_to_order':
                     # We have to split the move because we can't have
                     # a part of the move that have ancestors and not the
                     # other else it won't ever be reserved.
                     qty_to_procure = (
                         move.product_uom_qty - move.reserved_availability)
-                    if qty_to_procure < move.product_uom_qty:
+                    if 0.0 < qty_to_procure < move.product_uom_qty:
                         move._do_unreserve()
                         new_move_id = move._split(
                             qty_to_procure,
                             restrict_partner_id=move.restrict_partner_id)
                         new_move = move_obj.browse(new_move_id)
                         move._action_assign()
-                    else:
+                    elif qty_to_procure > 0.0:
                         new_move = move
                 elif move.state in ('partially_available', 'confirmed') \
                         and move.procure_method == 'make_to_stock' \
@@ -62,6 +61,8 @@ class MrpProduction(models.Model):
                     else:
                         continue
                 if new_move:
+                    if not mto_with_no_move_dest_id:
+                        new_move.write({'procure_method': 'make_to_order'})
                     production.run_procurement(new_move, qty_to_procure,
                                                mto_with_no_move_dest_id)
         return res

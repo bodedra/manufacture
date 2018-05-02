@@ -99,7 +99,7 @@ class TestMrpMtoWithStock(TransactionCase):
         """
             Test Manufacture mto with stock based on reservable stock
             and there is a link between sub assemblies MO's and Main MO raw
-            materi  al
+            material
         """
 
         self._update_product_qty(self.subproduct1, self.stock_location_stock,
@@ -113,11 +113,18 @@ class TestMrpMtoWithStock(TransactionCase):
         self._update_product_qty(self.subproduct_1_1,
                                  self.stock_location_stock, 50)
 
-        # Create MO and check it create sub assemblie MO.
+        # Create MO and check it create sub assembly MO.
         self.production.action_assign()
         self.assertEqual(self.production.state, 'confirmed')
         mo = self.production_model.search(
             [('origin', 'ilike', self.production.name)])
+        # Several calls to action_assign must not create extra MOs:
+        self.assertEqual(len(mo), 1)
+        self.production.action_assign()
+        mo = self.production_model.search(
+            [('origin', 'ilike', self.production.name)])
+        self.assertEqual(len(mo), 1)
+
         self.assertEqual(mo.product_qty, 3)
 
         mo.action_assign()
